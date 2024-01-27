@@ -180,6 +180,8 @@ class Tweet(JSONTrait):
     sourceUrl: str | None = None
     sourceLabel: str | None = None
     media: Optional["Media"] = None
+    pinned: bool | None = None
+    createdAt: datetime | None = None
     _type: str = "snscrape.modules.twitter.Tweet"
 
     # todo:
@@ -236,6 +238,8 @@ class Tweet(JSONTrait):
             sourceUrl=_get_source_url(obj),
             sourceLabel=_get_source_label(obj),
             media=Media.parse(obj),
+            pinned=tw_usr.pinned_tweet_ids and obj["id_str"] in tw_usr.pinned_tweet_ids,
+            createdAt= datetime.strptime(obj['created_at'], "%a %b %d %H:%M:%S %z %Y")
         )
 
         # issue #42 – restore full rt text
