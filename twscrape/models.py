@@ -250,43 +250,53 @@ class Tweet(JSONTrait):
 
 @dataclass
 class MediaPhoto(JSONTrait):
+    id: int
     url: str
+    tcourl: str
 
     @staticmethod
     def parse(obj: dict):
-        return MediaPhoto(url=obj["media_url_https"])
+        return MediaPhoto(id=obj['id_str'], url=obj["media_url_https"], tcourl=obj['url'])
 
 
 @dataclass
 class MediaVideo(JSONTrait):
+    id: int
     thumbnailUrl: str
     variants: list["MediaVideoVariant"]
     duration: int
     views: int | None = None
+    tcourl: str = None
 
     @staticmethod
     def parse(obj: dict):
         return MediaVideo(
+            id=obj['id_str'],
             thumbnailUrl=obj["media_url_https"],
             variants=[
                 MediaVideoVariant.parse(x) for x in obj["video_info"]["variants"] if "bitrate" in x
             ],
             duration=obj["video_info"]["duration_millis"],
             views=int_or(obj, "mediaStats.viewCount"),
+            tcourl=obj['url'],
         )
 
 
 @dataclass
 class MediaAnimated(JSONTrait):
+    id: int
     thumbnailUrl: str
     videoUrl: str
+    tcourl: str
 
     @staticmethod
     def parse(obj: dict):
         try:
             return MediaAnimated(
+                id=obj['id_str'],
                 thumbnailUrl=obj["media_url_https"],
                 videoUrl=obj["video_info"]["variants"][0]["url"],
+                tcourl=obj['url'],
             )
         except KeyError:
             return None
