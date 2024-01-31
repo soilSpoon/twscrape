@@ -73,14 +73,19 @@ class API:
 
         return rep if is_res else None, new_total, is_cur and not is_lim
 
-    def _get_cursor(self, obj: dict):
+    def _get_top_cursor(self, obj: dict):
+        if cur := find_obj(obj, lambda x: x.get("cursorType") == "Top"):
+            return cur.get("value")
+        return None
+    
+    def _get_bottom_cursor(self, obj: dict):
         if cur := find_obj(obj, lambda x: x.get("cursorType") == "Bottom"):
             return cur.get("value")
         return None
 
     # gql helpers
 
-    async def _gql_items(self, op: str, kv: dict, ft: dict | None = None, limit=-1):
+    async def _gql_items(self, op: str, kv: dict, ft: dict | None = None, limit=-1, cursorType='Bottom'):
         queue, cur, cnt, active = op.split("/")[-1], None, 0, True
         kv, ft = {**kv}, {**GQL_FEATURES, **(ft or {})}
 
@@ -99,13 +104,13 @@ class API:
                 obj = rep.json()
                 els = get_by_path(obj, "entries") or []
                 els = [x for x in els if not x["entryId"].startswith("cursor-")]
-                cur = self._get_cursor(obj)
+                cur = self._get_bottom_cursor(obj) if cursorType == 'Bottom' else self._get_top_cursor(obj)
 
                 rep, cnt, active = self._is_end(rep, queue, els, cur, cnt, limit)
                 if rep is None:
                     return
 
-                yield rep, cur
+                yield rep, self._get_top_cursor(obj), self._get_bottom_cursor(obj)
 
     async def _gql_item(self, op: str, kv: dict, ft: dict | None = None):
         ft = ft or {}
@@ -116,7 +121,7 @@ class API:
 
     # search
 
-    async def search_raw(self, q: str, limit=-1, kv=None):
+    async def search_raw(self, q: str, limit=-1, kv=None, cursorType='Bottom'):
         op = OP_SearchTimeline
         kv = {
             "rawQuery": q,
@@ -125,13 +130,13 @@ class API:
             "querySource": "typed_query",
             **(kv or {}),
         }
-        async for rep, cur in self._gql_items(op, kv, limit=limit):
-            yield rep, cur
+        async for rep, top_cur, bot_cur in self._gql_items(op, kv, limit=limit, cursorType=cursorType):
+            yield rep, top_cur, bot_cur
 
-    async def search(self, q: str, limit=-1, kv=None):
-        async for rep, cur in self.search_raw(q, limit=limit, kv=kv):
+    async def search(self, q: str, limit=-1, kv=None, cursorType='Bottom'):
+        async for rep, top_cur, bot_cur in self.search_raw(q, limit=limit, kv=kv):
             for rep in parse_tweets(rep.json(), limit):
-                yield rep, cur
+                yield rep, top_cur, bot_cur
 
     # user_by_id
 
@@ -200,60 +205,60 @@ class API:
 
     # followers
 
-    async def followers_raw(self, uid: int, limit=-1, kv=None):
+    async def followers_raw(self, uid: int, limit=-1, kv=None, cursorType='Bottom'):
         op = OP_Followers
         kv = {"userId": str(uid), "count": 20, "includePromotedContent": False, **(kv or {})}
         ft = {"responsive_web_twitter_article_notes_tab_enabled": False}
-        async for rep, cur in self._gql_items(op, kv, limit=limit, ft=ft):
-            yield rep, cur
+        async for rep, top_cur, bot_cur in self._gql_items(op, kv, limit=limit, cursorType=cursorType, ft=ft):
+            yield rep, top_cur, bot_cur
 
-    async def followers(self, uid: int, limit=-1, kv=None):
-        async for rep, cur in self.followers_raw(uid, limit=limit, kv=kv):
+    async def followers(self, uid: int, limit=-1, kv=None, cursorType='Bottom'):
+        async for rep, top_cur, bot_cur in self.followers_raw(uid, limit=limit, kv=kv, cursorType=cursorType):
             for rep in parse_users(rep.json(), limit):
-                yield rep, cur
+                yield rep, top_cur, bot_cur
 
     # following
 
-    async def following_raw(self, uid: int, limit=-1, kv=None):
+    async def following_raw(self, uid: int, limit=-1, kv=None, cursorType='Bottom'):
         op = OP_Following
         kv = {"userId": str(uid), "count": 20, "includePromotedContent": False, **(kv or {})}
-        async for rep, cur in self._gql_items(op, kv, limit=limit):
-            yield rep, cur
+        async for rep, top_cur, bot_cur in self._gql_items(op, kv, limit=limit, cursorType=cursorType):
+            yield rep, top_cur, bot_cur
 
-    async def following(self, uid: int, limit=-1, kv=None):
-        async for rep, cur in self.following_raw(uid, limit=limit, kv=kv):
+    async def following(self, uid: int, limit=-1, kv=None, cursorType='Bottom'):
+        async for rep, top_cur, bot_cur in self.following_raw(uid, limit=limit, kv=kv, cursorType=cursorType):
             for rep in parse_users(rep.json(), limit):
-                yield rep, cur
+                yield rep, top_cur, bot_cur
 
     # retweeters
 
-    async def retweeters_raw(self, twid: int, limit=-1, kv=None):
+    async def retweeters_raw(self, twid: int, limit=-1, kv=None, cursorType='Bottom'):
         op = OP_Retweeters
         kv = {"tweetId": str(twid), "count": 20, "includePromotedContent": True, **(kv or {})}
-        async for rep, cur in self._gql_items(op, kv, limit=limit):
-            yield rep, cur
+        async for rep, top_cur, bot_cur in self._gql_items(op, kv, limit=limit, cursorType=cursorType):
+            yield rep, top_cur, bot_cur
 
-    async def retweeters(self, twid: int, limit=-1, kv=None):
-        async for rep, cur in self.retweeters_raw(twid, limit=limit, kv=kv):
+    async def retweeters(self, twid: int, limit=-1, kv=None, cursorType='Bottom'):
+        async for rep, top_cur, bot_cur in self.retweeters_raw(twid, limit=limit, kv=kv):
             for rep in parse_users(rep.json(), limit):
-                yield rep, cur
+                yield rep, top_cur, bot_cur
 
     # favoriters
 
-    async def favoriters_raw(self, twid: int, limit=-1, kv=None):
+    async def favoriters_raw(self, twid: int, limit=-1, kv=None, cursorType='Bottom'):
         op = OP_Favoriters
         kv = {"tweetId": str(twid), "count": 20, "includePromotedContent": True, **(kv or {})}
-        async for rep, cur in self._gql_items(op, kv, limit=limit):
-            yield rep, cur
+        async for rep, top_cur, bot_cur in self._gql_items(op, kv, limit=limit, cursorType=cursorType):
+            yield rep, top_cur, bot_cur
 
-    async def favoriters(self, twid: int, limit=-1, kv=None):
-        async for rep, cur in self.favoriters_raw(twid, limit=limit, kv=kv):
+    async def favoriters(self, twid: int, limit=-1, kv=None, cursorType='Bottom'):
+        async for rep, top_cur, bot_cur in self.favoriters_raw(twid, limit=limit, kv=kv):
             for rep in parse_users(rep.json(), limit):
-                yield rep, cur
+                yield rep, top_cur, bot_cur
 
     # user_tweets
 
-    async def user_tweets_raw(self, uid: int, limit=-1, kv=None):
+    async def user_tweets_raw(self, uid: int, limit=-1, kv=None, cursorType='Bottom'):
         op = OP_UserTweets
         kv = {
             "userId": str(uid),
@@ -264,17 +269,17 @@ class API:
             "withV2Timeline": True,
             **(kv or {}),
         }
-        async for rep, cur in self._gql_items(op, kv, limit=limit):
-            yield rep, cur
+        async for rep, top_cur, bot_cur in self._gql_items(op, kv, limit=limit, cursorType=cursorType):
+            yield rep, top_cur, bot_cur
 
-    async def user_tweets(self, uid: int, limit=-1, kv=None):
-        async for rep, cur in self.user_tweets_raw(uid, limit=limit, kv=kv):
+    async def user_tweets(self, uid: int, limit=-1, kv=None, cursorType='Bottom'):
+        async for rep, top_cur, bot_cur in self.user_tweets_raw(uid, limit=limit, kv=kv, cursorType=cursorType):
             for rep in parse_tweets(rep.json(), limit):
-                yield rep, cur
+                yield rep, top_cur, bot_cur
 
     # user_tweets_and_replies
 
-    async def user_tweets_and_replies_raw(self, uid: int, limit=-1, kv=None):
+    async def user_tweets_and_replies_raw(self, uid: int, limit=-1, kv=None, cursorType='Bottom'):
         op = OP_UserTweetsAndReplies
         kv = {
             "userId": str(uid),
@@ -285,23 +290,23 @@ class API:
             "withV2Timeline": True,
             **(kv or {}),
         }
-        async for rep, cur in self._gql_items(op, kv, limit=limit):
-            yield rep, cur
+        async for rep, top_cur, bot_cur in self._gql_items(op, kv, limit=limit, cursorType=cursorType):
+            yield rep, top_cur, bot_cur
 
-    async def user_tweets_and_replies(self, uid: int, limit=-1, kv=None):
-        async for rep, cur in self.user_tweets_and_replies_raw(uid, limit=limit, kv=kv):
+    async def user_tweets_and_replies(self, uid: int, limit=-1, kv=None, cursorType='Bottom'):
+        async for rep, top_cur, bot_cur in self.user_tweets_and_replies_raw(uid, limit=limit, kv=kv, cursorType=cursorType):
             for rep in parse_tweets(rep.json(), limit):
-                yield rep, cur
+                yield rep, top_cur, bot_cur
 
     # list timeline
 
-    async def list_timeline_raw(self, list_id: int, limit=-1, kv=None):
+    async def list_timeline_raw(self, list_id: int, limit=-1, kv=None, cursorType='Bottom'):
         op = OP_ListLatestTweetsTimeline
         kv = {"listId": str(list_id), "count": 20, **(kv or {})}
-        async for rep, cur in self._gql_items(op, kv, limit=limit):
-            yield rep, cur
+        async for rep, top_cur, bot_cur in self._gql_items(op, kv, limit=limit, cursorType=cursorType):
+            yield rep, top_cur, bot_cur
 
-    async def list_timeline(self, list_id: int, limit=-1, kv=None):
-        async for rep, cur in self.list_timeline_raw(list_id, limit=limit, kv=kv):
+    async def list_timeline(self, list_id: int, limit=-1, kv=None, cursorType='Bottom'):
+        async for rep, top_cur, bot_cur in self.list_timeline_raw(list_id, limit=limit, kv=kv, cursorType=cursorType):
             for rep in parse_tweets(rep, limit):
-                yield rep, cur
+                yield rep, top_cur, bot_cur
