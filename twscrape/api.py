@@ -105,7 +105,7 @@ class API:
                 if rep is None:
                     return
 
-                yield rep
+                yield rep, cur
 
     async def _gql_item(self, op: str, kv: dict, ft: dict | None = None):
         ft = ft or {}
@@ -125,13 +125,13 @@ class API:
             "querySource": "typed_query",
             **(kv or {}),
         }
-        async for x in self._gql_items(op, kv, limit=limit):
-            yield x
+        async for rep, cur in self._gql_items(op, kv, limit=limit):
+            yield rep, cur
 
     async def search(self, q: str, limit=-1, kv=None):
-        async for rep in self.search_raw(q, limit=limit, kv=kv):
-            for x in parse_tweets(rep.json(), limit):
-                yield x
+        async for rep, cur in self.search_raw(q, limit=limit, kv=kv):
+            for rep in parse_tweets(rep.json(), limit):
+                yield rep, cur
 
     # user_by_id
 
@@ -204,52 +204,52 @@ class API:
         op = OP_Followers
         kv = {"userId": str(uid), "count": 20, "includePromotedContent": False, **(kv or {})}
         ft = {"responsive_web_twitter_article_notes_tab_enabled": False}
-        async for x in self._gql_items(op, kv, limit=limit, ft=ft):
-            yield x
+        async for rep, cur in self._gql_items(op, kv, limit=limit, ft=ft):
+            yield rep, cur
 
     async def followers(self, uid: int, limit=-1, kv=None):
-        async for rep in self.followers_raw(uid, limit=limit, kv=kv):
-            for x in parse_users(rep.json(), limit):
-                yield x
+        async for rep, cur in self.followers_raw(uid, limit=limit, kv=kv):
+            for rep in parse_users(rep.json(), limit):
+                yield rep, cur
 
     # following
 
     async def following_raw(self, uid: int, limit=-1, kv=None):
         op = OP_Following
         kv = {"userId": str(uid), "count": 20, "includePromotedContent": False, **(kv or {})}
-        async for x in self._gql_items(op, kv, limit=limit):
-            yield x
+        async for rep, cur in self._gql_items(op, kv, limit=limit):
+            yield rep, cur
 
     async def following(self, uid: int, limit=-1, kv=None):
-        async for rep in self.following_raw(uid, limit=limit, kv=kv):
-            for x in parse_users(rep.json(), limit):
-                yield x
+        async for rep, cur in self.following_raw(uid, limit=limit, kv=kv):
+            for rep in parse_users(rep.json(), limit):
+                yield rep, cur
 
     # retweeters
 
     async def retweeters_raw(self, twid: int, limit=-1, kv=None):
         op = OP_Retweeters
         kv = {"tweetId": str(twid), "count": 20, "includePromotedContent": True, **(kv or {})}
-        async for x in self._gql_items(op, kv, limit=limit):
-            yield x
+        async for rep, cur in self._gql_items(op, kv, limit=limit):
+            yield rep, cur
 
     async def retweeters(self, twid: int, limit=-1, kv=None):
-        async for rep in self.retweeters_raw(twid, limit=limit, kv=kv):
-            for x in parse_users(rep.json(), limit):
-                yield x
+        async for rep, cur in self.retweeters_raw(twid, limit=limit, kv=kv):
+            for rep in parse_users(rep.json(), limit):
+                yield rep, cur
 
     # favoriters
 
     async def favoriters_raw(self, twid: int, limit=-1, kv=None):
         op = OP_Favoriters
         kv = {"tweetId": str(twid), "count": 20, "includePromotedContent": True, **(kv or {})}
-        async for x in self._gql_items(op, kv, limit=limit):
-            yield x
+        async for rep, cur in self._gql_items(op, kv, limit=limit):
+            yield rep, cur
 
     async def favoriters(self, twid: int, limit=-1, kv=None):
-        async for rep in self.favoriters_raw(twid, limit=limit, kv=kv):
-            for x in parse_users(rep.json(), limit):
-                yield x
+        async for rep, cur in self.favoriters_raw(twid, limit=limit, kv=kv):
+            for rep in parse_users(rep.json(), limit):
+                yield rep, cur
 
     # user_tweets
 
@@ -264,13 +264,13 @@ class API:
             "withV2Timeline": True,
             **(kv or {}),
         }
-        async for x in self._gql_items(op, kv, limit=limit):
-            yield x
+        async for rep, cur in self._gql_items(op, kv, limit=limit):
+            yield rep, cur
 
     async def user_tweets(self, uid: int, limit=-1, kv=None):
-        async for rep in self.user_tweets_raw(uid, limit=limit, kv=kv):
-            for x in parse_tweets(rep.json(), limit):
-                yield x
+        async for rep, cur in self.user_tweets_raw(uid, limit=limit, kv=kv):
+            for rep in parse_tweets(rep.json(), limit):
+                yield rep, cur
 
     # user_tweets_and_replies
 
@@ -285,23 +285,23 @@ class API:
             "withV2Timeline": True,
             **(kv or {}),
         }
-        async for x in self._gql_items(op, kv, limit=limit):
-            yield x
+        async for rep, cur in self._gql_items(op, kv, limit=limit):
+            yield rep, cur
 
     async def user_tweets_and_replies(self, uid: int, limit=-1, kv=None):
-        async for rep in self.user_tweets_and_replies_raw(uid, limit=limit, kv=kv):
-            for x in parse_tweets(rep.json(), limit):
-                yield x
+        async for rep, cur in self.user_tweets_and_replies_raw(uid, limit=limit, kv=kv):
+            for rep in parse_tweets(rep.json(), limit):
+                yield rep, cur
 
     # list timeline
 
     async def list_timeline_raw(self, list_id: int, limit=-1, kv=None):
         op = OP_ListLatestTweetsTimeline
         kv = {"listId": str(list_id), "count": 20, **(kv or {})}
-        async for x in self._gql_items(op, kv, limit=limit):
-            yield x
+        async for rep, cur in self._gql_items(op, kv, limit=limit):
+            yield rep, cur
 
     async def list_timeline(self, list_id: int, limit=-1, kv=None):
-        async for rep in self.list_timeline_raw(list_id, limit=limit, kv=kv):
-            for x in parse_tweets(rep, limit):
-                yield x
+        async for rep, cur in self.list_timeline_raw(list_id, limit=limit, kv=kv):
+            for rep in parse_tweets(rep, limit):
+                yield rep, cur
