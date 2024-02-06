@@ -203,6 +203,11 @@ class API:
         rep = await self.tweet_details_raw(twid, kv=kv)
         return parse_tweet(rep, twid) if rep else None
 
+    async def tweet_details_list(self, twid: int, kv=None) -> Tweet | None:
+        rep = await self.tweet_details_raw(twid, kv=kv)
+        for rep in parse_tweets(rep.json()):
+            yield rep
+
     # followers
 
     async def followers_raw(self, uid: int, limit=-1, kv=None, cursorType='Bottom'):
