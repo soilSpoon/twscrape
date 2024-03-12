@@ -248,8 +248,8 @@ class Tweet(JSONTrait):
             sourceUrl=_get_source_url(obj),
             sourceLabel=_get_source_label(obj),
             media=Media.parse(obj),
-            pinned=tw_usr.pinned_tweet_ids and obj["id_str"] in tw_usr.pinned_tweet_ids,
-            createdAt= datetime.strptime(obj['created_at'], "%a %b %d %H:%M:%S %z %Y")
+            pinned=tw_usr.pinned_tweet_ids and obj["id_str"] in tw_usr.pinned_tweet_ids,  # type: ignore
+            createdAt=datetime.strptime(obj["created_at"], "%a %b %d %H:%M:%S %z %Y"),
         )
 
         # issue #42 – restore full rt text
@@ -270,7 +270,7 @@ class MediaPhoto(JSONTrait):
 
     @staticmethod
     def parse(obj: dict):
-        return MediaPhoto(id=obj['id_str'], url=obj["media_url_https"], tcourl=obj['url'])
+        return MediaPhoto(id=obj["id_str"], url=obj["media_url_https"], tcourl=obj["url"])
 
 
 @dataclass
@@ -280,19 +280,19 @@ class MediaVideo(JSONTrait):
     variants: list["MediaVideoVariant"]
     duration: int
     views: int | None = None
-    tcourl: str = None
+    tcourl: str | None = None
 
     @staticmethod
     def parse(obj: dict):
         return MediaVideo(
-            id=obj['id_str'],
+            id=obj["id_str"],
             thumbnailUrl=obj["media_url_https"],
             variants=[
                 MediaVideoVariant.parse(x) for x in obj["video_info"]["variants"] if "bitrate" in x
             ],
             duration=obj["video_info"]["duration_millis"],
             views=int_or(obj, "mediaStats.viewCount"),
-            tcourl=obj['url'],
+            tcourl=obj["url"],
         )
 
 
@@ -307,10 +307,10 @@ class MediaAnimated(JSONTrait):
     def parse(obj: dict):
         try:
             return MediaAnimated(
-                id=obj['id_str'],
+                id=obj["id_str"],
                 thumbnailUrl=obj["media_url_https"],
                 videoUrl=obj["video_info"]["variants"][0]["url"],
-                tcourl=obj['url'],
+                tcourl=obj["url"],
             )
         except KeyError:
             return None

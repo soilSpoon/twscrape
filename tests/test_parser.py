@@ -161,7 +161,7 @@ async def test_search():
     items = await gather(api.search("elon musk lang:en", limit=20))
     assert len(items) > 0
 
-    for doc in items:
+    for doc, _, _ in items:
         check_tweet(doc)
 
 
@@ -233,7 +233,7 @@ async def test_followers():
     users = await gather(api.followers(2244994945))
     assert len(users) > 0
 
-    for doc in users:
+    for doc, _, _ in users:
         check_user(doc)
 
 
@@ -267,7 +267,7 @@ async def test_following():
     users = await gather(api.following(2244994945))
     assert len(users) > 0
 
-    for doc in users:
+    for doc, _, _ in users:
         check_user(doc)
 
 
@@ -278,7 +278,7 @@ async def test_retweters():
     users = await gather(api.retweeters(1649191520250245121))
     assert len(users) > 0
 
-    for doc in users:
+    for doc, _, _ in users:
         check_user(doc)
 
 
@@ -289,7 +289,7 @@ async def test_favoriters():
     users = await gather(api.favoriters(1649191520250245121))
     assert len(users) > 0
 
-    for doc in users:
+    for doc, _, _ in users:
         check_user(doc)
 
 
@@ -300,7 +300,7 @@ async def test_user_tweets():
     tweets = await gather(api.user_tweets(2244994945))
     assert len(tweets) > 0
 
-    for doc in tweets:
+    for doc, _, _ in tweets:
         check_tweet(doc)
 
 
@@ -311,7 +311,7 @@ async def test_user_tweets_and_replies():
     tweets = await gather(api.user_tweets_and_replies(2244994945))
     assert len(tweets) > 0
 
-    for doc in tweets:
+    for doc, _, _ in tweets:
         check_tweet(doc)
 
 
@@ -322,7 +322,7 @@ async def test_list_timeline():
     tweets = await gather(api.list_timeline(1494877848087187461))
     assert len(tweets) > 0
 
-    for doc in tweets:
+    for doc, _, _ in tweets:
         check_tweet(doc)
 
 
