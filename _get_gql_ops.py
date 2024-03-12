@@ -5,23 +5,16 @@ import re
 import httpx
 from fake_useragent import UserAgent
 
-client = httpx.Client(headers={"user-agent": UserAgent().chrome})
-
-ops = """
-SearchTimeline
-UserByRestId
-UserByScreenName
-TweetDetail
-Followers
-Following
-Retweeters
-Favoriters
-UserTweets
-UserTweetsAndReplies
-ListLatestTweetsTimeline
+"""
+docker run --rm -p "3128:3128/tcp" -p "1080:1080/tcp" -e "PROXY_LOGIN=user" -e "PROXY_PASSWORD=pass" tarampampam/3proxy
+docker run --rm -p "3129:3128/tcp" -p "1081:1080/tcp" tarampampam/3proxy
 """
 
-ops = [op.strip() for op in ops.split("\n") if op.strip()]
+client = httpx.Client(headers={"user-agent": UserAgent().chrome})
+
+with open("./twscrape/api.py") as fp:
+    ops = [x.strip() for x in fp.read().split("\n")]
+    ops = [x.split("=")[0].removeprefix("OP_").strip() for x in ops if x.startswith("OP_")]
 
 
 def script_url(k: str, v: str):
