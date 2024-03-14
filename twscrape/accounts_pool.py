@@ -268,8 +268,10 @@ class AccountsPool:
                 if not msg_shown:
                     nat = await self.next_available_at(queue)
                     if not nat:
-                        logger.warning(f'No active accounts fo queue "{queue}". Stopping...')
-                        return None
+                        await asyncio.sleep(1)
+                        continue
+                        # logger.warning(f'No active accounts fo queue "{queue}". Stopping...')
+                        # return None
 
                     msg = f'No account available for queue "{queue}". Next available at {nat}'
                     logger.info(msg)
