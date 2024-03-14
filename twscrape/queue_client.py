@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 from typing import Any
@@ -104,7 +105,8 @@ class QueueClient:
 
         acc = await self.pool.get_for_queue_or_wait(self.queue)
         if acc is None:
-            return None
+            await asyncio.sleep(1)
+            return self._get_ctx()
 
         clt = acc.make_client(proxy=self.proxy)
         self.ctx = Ctx(acc, clt)
