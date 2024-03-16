@@ -20,7 +20,7 @@ OP_ListLatestTweetsTimeline = "HjsWc-nwwHKYwHenbHm-tw/ListLatestTweetsTimeline"
 OP_Likes = "9s8V6sUI8fZLDiN-REkAxA/Likes"
 OP_BlueVerifiedFollowers = "mg4dFO4kMIKt6tpqPMmFeg/BlueVerifiedFollowers"
 OP_UserCreatorSubscriptions = "3IgWXBdSRADe5MkzziJV0A/UserCreatorSubscriptions"
-
+OP_AudioSpaceById = "ARXL11vi9i1d3TrrweT9gw/AudioSpaceById"
 
 GQL_URL = "https://twitter.com/i/api/graphql"
 GQL_FEATURES = {  # search values here (view source) https://twitter.com/
@@ -417,3 +417,17 @@ class API:
         async for rep, _, _ in self.liked_tweets_raw(uid, limit=limit, kv=kv):
             for x in parse_tweets(rep.json(), limit):
                 yield x
+
+    async def audio_space_by_id_raw(self, id: int, kv=None):
+        op = OP_AudioSpaceById
+        kv = {
+            "id": str(id),
+            "isMetatagsQuery": True,
+            "withReplays": True,
+            **(kv or {})
+        }
+        ft = {
+            "spaces_2022_h2_spaces_communities":True,
+            "spaces_2022_h2_clipping":True, 
+        }
+        return await self._gql_item(op, kv, ft)
