@@ -21,6 +21,7 @@ OP_Likes = "9s8V6sUI8fZLDiN-REkAxA/Likes"
 OP_BlueVerifiedFollowers = "mg4dFO4kMIKt6tpqPMmFeg/BlueVerifiedFollowers"
 OP_UserCreatorSubscriptions = "3IgWXBdSRADe5MkzziJV0A/UserCreatorSubscriptions"
 OP_AudioSpaceById = "ARXL11vi9i1d3TrrweT9gw/AudioSpaceById"
+OP_BroadcastQuery = "IYpwyDhAxS89lVXmffLHlQ/BroadcastQuery"
 
 GQL_URL = "https://twitter.com/i/api/graphql"
 GQL_FEATURES = {  # search values here (view source) https://twitter.com/
@@ -430,4 +431,13 @@ class API:
             "spaces_2022_h2_spaces_communities":True,
             "spaces_2022_h2_clipping":True, 
         }
+        return await self._gql_item(op, kv, ft)
+    
+    async def broadcast_query_raw(self, id: str, kv=None):
+        op = OP_BroadcastQuery
+        kv = {
+            "id": id,
+            **(kv or {})
+        }
+        ft = {}
         return await self._gql_item(op, kv, ft)
