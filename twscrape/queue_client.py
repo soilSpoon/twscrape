@@ -184,6 +184,10 @@ class QueueClient:
             logger.warning(f"Authorization unknown error: {log_msg}")
             return
 
+        if rep.status_code == 404:
+            logger.warning(f"Content not found: {log_msg}")
+            return
+
         if err_msg != "OK":
             logger.warning(f"API unknown error: {log_msg}")
             return  # ignore any other unknown errors
