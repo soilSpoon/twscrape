@@ -452,8 +452,10 @@ def _parse_card_extract_largest_photo(values: list[dict]):
     photos = [x for x in values if x["value"]["type"] == "IMAGE"]
     photos = sorted(photos, key=lambda x: x["value"]["image_value"]["height"], reverse=True)
     values = [x for x in values if x["value"]["type"] != "IMAGE"]
+    url = photos[0]["value"]["image_value"]["url"] 
+    id = url.split("/")[-1].split("?")[0]
     if photos:
-        return MediaPhoto(url=photos[0]["value"]["image_value"]["url"]), values
+        return MediaPhoto(id=id, url=url, tcourl=url), values
     else:
         return None, values
 
