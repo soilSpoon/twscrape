@@ -4,7 +4,7 @@ from typing import Callable
 
 from twscrape import API, gather
 from twscrape.logger import set_log_level
-from twscrape.models import Tweet, User, UserRef, parse_tweet
+from twscrape.models import PollCard, SummaryCard, Tweet, User, UserRef, parse_tweet
 
 BASE_DIR = os.path.dirname(__file__)
 DATA_DIR = os.path.join(BASE_DIR, "mocked-data")
@@ -315,6 +315,20 @@ async def test_user_tweets_and_replies():
         check_tweet(doc)
 
 
+async def test_raw_user_media():
+    api = API()
+    mock_rep(api.user_media_raw, "raw_user_media", as_generator=True)
+
+    tweets = await gather(api.user_media(2244994945))
+    assert len(tweets) > 0
+
+    for doc in tweets:
+        check_tweet(doc)
+        assert doc.media is not None
+        media_count = len(doc.media.photos) + len(doc.media.videos) + len(doc.media.animated)
+        assert media_count > 0, f"{doc.url} should have media"
+
+
 async def test_list_timeline():
     api = API()
     mock_rep(api.list_timeline_raw, "raw_list_timeline", as_generator=True)
@@ -398,3 +412,30 @@ async def test_issue_56():
     assert doc is not None
     assert len(set([x.tcourl for x in doc.links])) == len(doc.links)
     assert len(doc.links) == 5
+
+
+async def test_issue_72():
+    # Check SummaryCard
+    raw = fake_rep("_issue_72").json()
+    doc = parse_tweet(raw, 1696922210588410217)
+    assert doc is not None
+    assert doc.card is not None
+    assert isinstance(doc.card, SummaryCard)
+    assert doc.card._type == "summary"
+    assert doc.card.title is not None
+    assert doc.card.description is not None
+    assert doc.card.url is not None
+
+    # Check PoolCard
+    raw = fake_rep("_issue_72_poll").json()
+    doc = parse_tweet(raw, 1780666831310877100)
+    assert doc is not None
+    assert doc.card is not None
+    assert isinstance(doc.card, PollCard)
+    assert doc.card._type == "poll"
+    assert doc.card.finished is not None
+    assert doc.card.options is not None
+    assert len(doc.card.options) > 0
+    for x in doc.card.options:
+        assert x.label is not None
+        assert x.votesCount is not None

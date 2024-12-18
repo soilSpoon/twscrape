@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "twscrape"
-version = "0.11.1"
+version = "0.12"
 authors = [{name = "vladkens", email = "v.pronsky@gmail.com"}]
 description = "Twitter GraphQL and Search API implementation with SNScrape data models"
 readme = "readme.md"
@@ -23,11 +23,12 @@ dependencies = [
   "fake-useragent>=1.4.0",
   "httpx>=0.26.0",
   "loguru>=0.7.0",
+  "pyotp>=2.9.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "pyright>=1.1.350",
+  "pyright>=1.1.359",
   "pytest-asyncio>=0.23.3",
   "pytest-cov>=4.1.0",
   "pytest-httpx>=0.28.0",

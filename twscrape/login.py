@@ -3,12 +3,13 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 
-from httpx import AsyncClient, HTTPStatusError, Response
+import pyotp
+from httpx import AsyncClient, Response
 
 from .account import Account
 from .imap import imap_get_email_code, imap_login
 from .logger import logger
-from .utils import raise_for_status, utc
+from .utils import utc
 
 LOGIN_URL = "https://api.twitter.com/1.1/onboarding/task.json"
 
@@ -30,7 +31,7 @@ class TaskCtx:
 
 async def get_guest_token(client: AsyncClient):
     rep = await client.post("https://api.twitter.com/1.1/guest/activate.json")
-    raise_for_status(rep, "guest_token (most likely ip ban)")
+    rep.raise_for_status()
     return rep.json()["guest_token"]
 
 
@@ -43,7 +44,23 @@ async def login_initiate(client: AsyncClient) -> Response:
     }
 
     rep = await client.post(LOGIN_URL, params={"flow_name": "login"}, json=payload)
-    raise_for_status(rep, "login_initiate")
+    rep.raise_for_status()
+    return rep
+
+
+async def login_alternate_identifier(ctx: TaskCtx, *, username: str) -> Response:
+    payload = {
+        "flow_token": ctx.prev["flow_token"],
+        "subtask_inputs": [
+            {
+                "subtask_id": "LoginEnterAlternateIdentifierSubtask",
+                "enter_text": {"text": username, "link": "next_link"},
+            }
+        ],
+    }
+
+    rep = await ctx.client.post(LOGIN_URL, json=payload)
+    rep.raise_for_status()
     return rep
 
 
@@ -59,7 +76,7 @@ async def login_instrumentation(ctx: TaskCtx) -> Response:
     }
 
     rep = await ctx.client.post(LOGIN_URL, json=payload)
-    raise_for_status(rep, "login_instrumentation")
+    rep.raise_for_status()
     return rep
 
 
@@ -83,7 +100,7 @@ async def login_enter_username(ctx: TaskCtx) -> Response:
     }
 
     rep = await ctx.client.post(LOGIN_URL, json=payload)
-    raise_for_status(rep, "login_username")
+    rep.raise_for_status()
     return rep
 
 
@@ -99,7 +116,27 @@ async def login_enter_password(ctx: TaskCtx) -> Response:
     }
 
     rep = await ctx.client.post(LOGIN_URL, json=payload)
-    raise_for_status(rep, "login_password")
+    rep.raise_for_status()
+    return rep
+
+
+async def login_two_factor_auth_challenge(ctx: TaskCtx) -> Response:
+    if ctx.acc.mfa_code is None:
+        raise ValueError("MFA code is required")
+
+    totp = pyotp.TOTP(ctx.acc.mfa_code)
+    payload = {
+        "flow_token": ctx.prev["flow_token"],
+        "subtask_inputs": [
+            {
+                "subtask_id": "LoginTwoFactorAuthChallenge",
+                "enter_text": {"text": totp.now(), "link": "next_link"},
+            }
+        ],
+    }
+
+    rep = await ctx.client.post(LOGIN_URL, json=payload)
+    rep.raise_for_status()
     return rep
 
 
@@ -115,7 +152,7 @@ async def login_duplication_check(ctx: TaskCtx) -> Response:
     }
 
     rep = await ctx.client.post(LOGIN_URL, json=payload)
-    raise_for_status(rep, "login_duplication_check")
+    rep.raise_for_status()
     return rep
 
 
@@ -131,7 +168,7 @@ async def login_confirm_email(ctx: TaskCtx) -> Response:
     }
 
     rep = await ctx.client.post(LOGIN_URL, json=payload)
-    raise_for_status(rep, "login_confirm_email")
+    rep.raise_for_status()
     return rep
 
 
@@ -158,7 +195,7 @@ async def login_confirm_email_code(ctx: TaskCtx):
     }
 
     rep = await ctx.client.post(LOGIN_URL, json=payload)
-    raise_for_status(rep, "login_confirm_email")
+    rep.raise_for_status()
     return rep
 
 
@@ -169,7 +206,7 @@ async def login_success(ctx: TaskCtx) -> Response:
     }
 
     rep = await ctx.client.post(LOGIN_URL, json=payload)
-    raise_for_status(rep, "login_success")
+    rep.raise_for_status()
     return rep
 
 
@@ -196,10 +233,14 @@ async def next_login_task(ctx: TaskCtx, rep: Response):
                 return await login_duplication_check(ctx)
             if task_id == "LoginEnterPassword":
                 return await login_enter_password(ctx)
+            if task_id == "LoginTwoFactorAuthChallenge":
+                return await login_two_factor_auth_challenge(ctx)
             if task_id == "LoginEnterUserIdentifierSSO":
                 return await login_enter_username(ctx)
             if task_id == "LoginJsInstrumentationSubtask":
                 return await login_instrumentation(ctx)
+            if task_id == "LoginEnterAlternateIdentifierSubtask":
+                return await login_alternate_identifier(ctx, username=ctx.acc.username)
         except Exception as e:
             ctx.acc.error_msg = f"login_step={task_id} err={e}"
             raise e
@@ -224,16 +265,11 @@ async def login(acc: Account, cfg: LoginConfig | None = None) -> Account:
         rep = await login_initiate(client)
         ctx = TaskCtx(client, acc, cfg, None, imap)
         while True:
+            rep = await next_login_task(ctx, rep)
             if not rep:
                 break
 
-            try:
-                rep = await next_login_task(ctx, rep)
-            except HTTPStatusError as e:
-                if e.response.status_code == 403:
-                    logger.error(f"403 error {log_id}")
-                    return acc
-
+        assert "ct0" in client.cookies, "ct0 not in cookies (most likely ip ban)"
         client.headers["x-csrf-token"] = client.cookies["ct0"]
         client.headers["x-twitter-auth-type"] = "OAuth2Session"
 
