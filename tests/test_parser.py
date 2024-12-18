@@ -3,14 +3,20 @@ import os
 from typing import Callable
 
 from twscrape import API, gather
-from twscrape.logger import set_log_level
-from twscrape.models import PollCard, SummaryCard, Tweet, User, UserRef, parse_tweet
+from twscrape.models import (
+    AudiospaceCard,
+    BroadcastCard,
+    PollCard,
+    SummaryCard,
+    Tweet,
+    User,
+    UserRef,
+    parse_tweet,
+)
 
 BASE_DIR = os.path.dirname(__file__)
 DATA_DIR = os.path.join(BASE_DIR, "mocked-data")
 os.makedirs(DATA_DIR, exist_ok=True)
-
-set_log_level("DEBUG")
 
 
 class FakeRep:
@@ -115,6 +121,7 @@ def check_tweet(doc: Tweet | None):
             raise e
 
     check_user(doc.user)
+    assert doc.bookmarkedCount is not None
 
 
 def check_user(doc: User):
@@ -125,6 +132,10 @@ def check_user(doc: User):
 
     assert doc.username is not None
     assert doc.descriptionLinks is not None
+    assert doc.pinnedIds is not None
+    if doc.pinnedIds:
+        for x in doc.pinnedIds:
+            assert isinstance(x, int)
 
     if len(doc.descriptionLinks) > 0:
         for x in doc.descriptionLinks:
@@ -161,8 +172,12 @@ async def test_search():
     items = await gather(api.search("elon musk lang:en", limit=20))
     assert len(items) > 0
 
+    bookmarks_count = 0
     for doc, _, _ in items:
         check_tweet(doc)
+        bookmarks_count += doc.bookmarkedCount
+
+    assert bookmarks_count > 0, "the key is changed or bad luck with data?"
 
 
 async def test_user_by_id():
@@ -284,7 +299,7 @@ async def test_retweters():
 
 async def test_favoriters():
     api = API()
-    mock_rep(api.favoriters_raw, "raw_favoriters", as_generator=True)
+    mock_rep(api.favoriters_raw, "old_raw_favoriters", as_generator=True)
 
     users = await gather(api.favoriters(1649191520250245121))
     assert len(users) > 0
@@ -300,8 +315,12 @@ async def test_user_tweets():
     tweets = await gather(api.user_tweets(2244994945))
     assert len(tweets) > 0
 
+    is_any_pinned = False
     for doc, _, _ in tweets:
         check_tweet(doc)
+        is_any_pinned = is_any_pinned or doc.id in doc.user.pinnedIds
+
+    assert is_any_pinned, "at least one tweet should be pinned (or bad luck with data)"
 
 
 async def test_user_tweets_and_replies():
@@ -342,7 +361,7 @@ async def test_list_timeline():
 
 async def test_likes():
     api = API()
-    mock_rep(api.liked_tweets_raw, "raw_likes", as_generator=True)
+    mock_rep(api.liked_tweets_raw, "old_raw_likes", as_generator=True)
 
     tweets = await gather(api.liked_tweets(2244994945))
     assert len(tweets) > 0
@@ -414,9 +433,13 @@ async def test_issue_56():
     assert len(doc.links) == 5
 
 
-async def test_issue_72():
+async def test_cards():
+    # Issues:
+    # - https://github.com/vladkens/twscrape/issues/72
+    # - https://github.com/vladkens/twscrape/issues/191
+
     # Check SummaryCard
-    raw = fake_rep("_issue_72").json()
+    raw = fake_rep("card_summary").json()
     doc = parse_tweet(raw, 1696922210588410217)
     assert doc is not None
     assert doc.card is not None
@@ -426,8 +449,8 @@ async def test_issue_72():
     assert doc.card.description is not None
     assert doc.card.url is not None
 
-    # Check PoolCard
-    raw = fake_rep("_issue_72_poll").json()
+    # Check PollCard
+    raw = fake_rep("card_poll").json()
     doc = parse_tweet(raw, 1780666831310877100)
     assert doc is not None
     assert doc.card is not None
@@ -439,3 +462,21 @@ async def test_issue_72():
     for x in doc.card.options:
         assert x.label is not None
         assert x.votesCount is not None
+
+    # Check BrodcastCard
+    raw = fake_rep("card_broadcast").json()
+    doc = parse_tweet(raw, 1790441814857826439)
+    assert doc is not None and doc.card is not None
+    assert doc.card._type == "broadcast"
+    assert isinstance(doc.card, BroadcastCard)
+    assert doc.card.title is not None
+    assert doc.card.url is not None
+    assert doc.card.photo is not None
+
+    # Check AudiospaceCard
+    raw = fake_rep("card_audiospace").json()
+    doc = parse_tweet(raw, 1789054061729173804)
+    assert doc is not None and doc.card is not None
+    assert doc.card._type == "audiospace"
+    assert isinstance(doc.card, AudiospaceCard)
+    assert doc.card.url is not None
