@@ -192,7 +192,8 @@ class Tweet(JSONTrait):
     media: Optional["Media"] = None
     pinned: bool | None = None
     createdAt: datetime | None = None
-    card: Optional["SummaryCard"] | Optional["PollCard"] = None
+    card: Union[None, "SummaryCard", "PollCard", "BroadcastCard", "AudiospaceCard"] = None
+    possibly_sensitive: bool | None = None
     _type: str = "snscrape.modules.twitter.Tweet"
 
     # todo:
@@ -255,6 +256,7 @@ class Tweet(JSONTrait):
             pinned=tw_usr.pinned_tweet_ids and obj["id_str"] in tw_usr.pinned_tweet_ids,  # type: ignore
             createdAt=datetime.strptime(obj["created_at"], "%a %b %d %H:%M:%S %z %Y"),
             card=_parse_card(obj, url),
+            possibly_sensitive=obj.get("possibly_sensitive", None),
         )
 
         # issue #42 – restore full rt text
